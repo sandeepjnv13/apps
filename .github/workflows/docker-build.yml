@@ -13,6 +13,8 @@ jobs:
   detect-and-build:
     runs-on: ubuntu-latest
     name: Detect Changed Apps & Build
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -20,25 +22,37 @@ jobs:
       - name: Set up Docker login
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Detect Changed App Folders
+      - name: Detect App Folders to Build
         id: detect
         run: |
-          changed_folders=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '^apps/' | cut -d '/' -f2 | sort -u)
-          echo "Changed folders: $changed_folders"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "Manual trigger - building all apps"
+            folders=$(ls -1 apps)
+          else
+            echo "Push or PR trigger - detecting changed folders"
+            folders=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '^apps/' | cut -d '/' -f2 | sort -u)
+          fi
 
-          # Create JSON array for matrix
+          echo "Detected folders: $folders"
+
           json="["
-          for f in $changed_folders; do
-            json="$json\"$f\","
+          for f in $folders; do
+            if [ -n "$f" ]; then
+              json="$json\"$f\","
+            fi
           done
           json="${json%,}]"
+
+          echo "Final matrix: $json"
           echo "matrix=$json" >> $GITHUB_OUTPUT
 
-    outputs:
-      matrix: ${{ steps.detect.outputs.matrix }}
+      - name: Set matrix output
+        id: set-matrix
+        run: echo "matrix=${{ steps.detect.outputs.matrix }}" >> $GITHUB_OUTPUT
 
   build-and-push:
     needs: detect-and-build
+    if: needs.detect-and-build.outputs.matrix != '[]'
     runs-on: ubuntu-latest
     strategy:
       matrix:
