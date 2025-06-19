@@ -27,3 +27,6 @@
 hs_err_pid*
 replay_pid*
 .idea/
+# Ignore all .tar and compressed .tar files
+*.tar
+*.tar.*
