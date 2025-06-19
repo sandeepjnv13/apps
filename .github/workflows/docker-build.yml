@@ -71,10 +71,25 @@ jobs:
       - name: Set up Docker login
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+      - name: Extract version from pom.xml
+        id: version
+        run: |
+          version=$(mvn -f ${{ matrix.app }}/pom.xml help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "Project version: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Build and Push Docker Image
         run: |
-          docker build -t ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}:${{ github.sha }} -f ${{ matrix.app }}/Dockerfile ${{ matrix.app }}
-          docker push ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}:${{ github.sha }}
+          version=${{ steps.version.outputs.version }}
+          image_base=ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}
 
-          docker tag ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}:${{ github.sha }} ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}:latest
-          docker push ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}:latest
+          echo "Building and pushing: $image_base"
+
+          docker build -t $image_base:${{ github.sha }} -f ${{ matrix.app }}/Dockerfile ${{ matrix.app }}
+          docker push $image_base:${{ github.sha }}
+
+          docker tag $image_base:${{ github.sha }} $image_base:latest
+          docker push $image_base:latest
+
+          docker tag $image_base:${{ github.sha }} $image_base:$version
+          docker push $image_base:$version
