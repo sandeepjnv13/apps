@@ -43,11 +43,14 @@ jobs:
           done
           json="${json%,}]"
 
-          echo "matrix=$json" >> $GITHUB_OUTPUT
+          echo "Final JSON matrix: $json"
+          echo "matrix=$json" >> $GITHUB_ENV
 
       - name: Set matrix output
         id: set-matrix
-        run: echo "matrix=${{ steps.detect.outputs.matrix }}" >> $GITHUB_OUTPUT
+        run: |
+          echo "${{ env.matrix }}"
+          echo "matrix=${{ env.matrix }}" >> $GITHUB_OUTPUT
 
   build-and-push:
     needs: detect-and-build
