@@ -29,8 +29,17 @@ jobs:
             echo "Manual trigger - building all top-level app folders"
             folders=$(find . -maxdepth 1 -mindepth 1 -type d ! -name ".git" ! -name ".github" ! -name "." | sed 's|^\./||')
           else
-            echo "Detecting changed top-level app folders"
-            folders=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | cut -d '/' -f1 | sort -u)
+            echo "Push or PR trigger - detecting changed top-level folders"
+            git fetch --unshallow || true
+            git fetch origin ${{ github.event.before }} || true
+
+            before_commit="${{ github.event.before }}"
+            if ! git cat-file -e "$before_commit^{commit}" 2>/dev/null; then
+              echo "Warning: github.event.before not found, falling back to HEAD~1"
+              before_commit=$(git rev-parse HEAD~1)
+            fi
+
+            folders=$(git diff --name-only "$before_commit" ${{ github.sha }} | cut -d '/' -f1 | sort -u)
           fi
 
           echo "Detected folders: $folders"
