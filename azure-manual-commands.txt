@@ -1,0 +1,14 @@
+# re-deploy an existing app
+az containerapp update --name test --resource-group personal-rg --image ghcr.io/sandeepjnv13/test:latest
+
+# check logs after deployment
+az containerapp logs stream --name test --resource-group personal-rg
+
+
+# deploy a new app
+az containerapp create --name my-new-app --resource-group personal-rg --environment test-env --image ghcr.io/sandeepjnv13/my-new-app:latest --target-port 8080 --ingress external
+
+
+# to check the deployed container apps
+go to -> https://portal.azure.com/ -> search 'Container Apps' -> there all container apps will be shown
+
