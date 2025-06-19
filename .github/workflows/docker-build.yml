@@ -1,0 +1,59 @@
+name: Build & Push Docker Images
+
+on:
+  push:
+    paths:
+      - 'apps/**'
+  pull_request:
+    paths:
+      - 'apps/**'
+
+jobs:
+  detect-and-build:
+    runs-on: ubuntu-latest
+    name: Detect Changed Apps & Build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker login
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Detect Changed App Folders
+        id: detect
+        run: |
+          changed_folders=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '^apps/' | cut -d '/' -f2 | sort -u)
+          echo "Changed folders: $changed_folders"
+
+          # Create JSON array for matrix
+          json="["
+          for f in $changed_folders; do
+            json="$json\"$f\","
+          done
+          json="${json%,}]"
+          echo "matrix=$json" >> $GITHUB_OUTPUT
+
+    outputs:
+      matrix: ${{ steps.detect.outputs.matrix }}
+
+  build-and-push:
+    needs: detect-and-build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: ${{ fromJson(needs.detect-and-build.outputs.matrix) }}
+    name: Build & Push - ${{ matrix.app }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker login
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and Push Docker Image
+        run: |
+          docker build -t ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}:${{ github.sha }} -f apps/${{ matrix.app }}/Dockerfile apps/${{ matrix.app }}
+          docker push ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}:${{ github.sha }}
+
+          docker tag ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}:${{ github.sha }} ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}:latest
+          docker push ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}:latest
