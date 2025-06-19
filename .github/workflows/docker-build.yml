@@ -3,16 +3,16 @@ name: Build & Push Docker Images
 on:
   push:
     paths:
-      - 'apps/**'
+      - '**'
   pull_request:
     paths:
-      - 'apps/**'
+      - '**'
   workflow_dispatch:
 
 jobs:
   detect-and-build:
     runs-on: ubuntu-latest
-    name: Detect Changed Apps & Build
+    name: Detect Changed App Folders
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
@@ -22,28 +22,27 @@ jobs:
       - name: Set up Docker login
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Detect App Folders to Build
+      - name: Detect App Folders
         id: detect
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "Manual trigger - building all apps"
-            folders=$(ls -1 apps)
+            echo "Manual trigger - building all top-level app folders"
+            folders=$(find . -maxdepth 1 -mindepth 1 -type d ! -name ".git" ! -name ".github" ! -name "." | sed 's|^\./||')
           else
-            echo "Push or PR trigger - detecting changed folders"
-            folders=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '^apps/' | cut -d '/' -f2 | sort -u)
+            echo "Detecting changed top-level app folders"
+            folders=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | cut -d '/' -f1 | sort -u)
           fi
 
           echo "Detected folders: $folders"
 
           json="["
           for f in $folders; do
-            if [ -n "$f" ]; then
+            if [ -f "$f/Dockerfile" ]; then
               json="$json\"$f\","
             fi
           done
           json="${json%,}]"
 
-          echo "Final matrix: $json"
           echo "matrix=$json" >> $GITHUB_OUTPUT
 
       - name: Set matrix output
@@ -67,7 +66,7 @@ jobs:
 
       - name: Build and Push Docker Image
         run: |
-          docker build -t ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}:${{ github.sha }} -f apps/${{ matrix.app }}/Dockerfile apps/${{ matrix.app }}
+          docker build -t ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}:${{ github.sha }} -f ${{ matrix.app }}/Dockerfile ${{ matrix.app }}
           docker push ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}:${{ github.sha }}
 
           docker tag ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}:${{ github.sha }} ghcr.io/${{ github.repository_owner }}/${{ matrix.app }}:latest
