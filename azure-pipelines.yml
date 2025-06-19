@@ -18,7 +18,7 @@ variables:
 
 stages:
   - stage: DetectChangedApps
-    displayName: '🔍 Detect Changed App Folders'
+    displayName: 'Changed Apps'
     jobs:
       - job: detect
         steps:
@@ -41,7 +41,7 @@ stages:
 
   - stage: BuildTestPublish
     dependsOn: DetectChangedApps
-    displayName: '🚀 Build, Test, Publish Apps'
+    displayName: 'Build, Test, Publish Apps'
     condition: succeeded()
     jobs:
       - job: matrixJob
@@ -65,7 +65,7 @@ stages:
               echo "$GH_TOKEN" | docker login ghcr.io -u sandeepjnv13 --password-stdin
             env:
               GH_TOKEN: $(GITHUB_TOKEN)
-            displayName: '🔐 Login to GitHub Container Registry'
+            displayName: 'Login to GitHub Container Registry'
 
           - script: |
               docker build -t $(githubRegistry)/$(System.JobDisplayName):$(Build.BuildId) -f apps/$(System.JobDisplayName)/Dockerfile apps/$(System.JobDisplayName)
