@@ -3,13 +3,15 @@ import pandas as pd
 from dotenv import load_dotenv
 import chromadb
 from sentence_transformers import SentenceTransformer
+import os
 
 load_dotenv()
 
 # Constants
 CHROMA_DIR = "chroma_db"
 COLLECTION_NAME = "books_collection"
-CSV_PATH = "../data/books_cleaned.csv"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_PATH = os.path.join(BASE_DIR, "../data/books_cleaned.csv")
 
 
 # Globals initialized once
